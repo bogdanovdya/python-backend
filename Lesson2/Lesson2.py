@@ -11,14 +11,15 @@ class Car:
     def get_specs(self):
         return self.__specs
 
-##Реализовать доступ к функции получения скорости ветра как к переменной экземпляра класса
-##Не смог разобраться в этом
+    
 class Weather:
     def __init__(self, wind_speed=20):
         self.__wind_speed = wind_speed
 
     def get_wind_speed(self):
         return randint(0, self.__wind_speed)
+    
+    wind_speed = property(get_wind_speed)
 
 
 class Competition:
@@ -37,7 +38,7 @@ class Competition:
             car = competitor_name.get_specs()
 
             for distance in range(self.__distance):
-                _wind_speed = weather.get_wind_speed()
+                _wind_speed = weather.wind_speed
 
                 if competitor_time == 0:
                     _speed = 1

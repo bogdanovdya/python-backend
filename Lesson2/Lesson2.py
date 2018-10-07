@@ -4,65 +4,74 @@ from random import randint
 
 
 class Car:
-    def __init__(self, **kwargs):
-        self.__specs = {"label": 'just_another_car', "max_speed": 160, "drag_coef": 0.33, "time_to_max": 50}
-        self.__specs.update(kwargs)
+    def __init__(self, label='just_another_car', max_speed=180, drag_coef=0.33, time_to_max=50):
+        self._specs = {"label": label,
+                       "max_speed": max_speed,
+                       "drag_coef": drag_coef,
+                       "time_to_max": time_to_max}
 
-    def get_specs(self):
-        return self.__specs
+    def ride(self, ambient_weather, ride_distance):
+        _ride_time = 0
 
-    
+        for distance in range(ride_distance):
+            _wind_speed = ambient_weather.wind_speed
+
+            if _ride_time == 0:
+                _speed = 1
+            else:
+                _speed = (_ride_time / self._specs["time_to_max"]) * self._specs['max_speed']
+                if _speed > _wind_speed:
+                    _speed -= (self._specs["drag_coef"] * _wind_speed)
+
+            _ride_time += float(1) / _speed
+
+        return {"label": self._specs["label"], "time": _ride_time}
+
+
 class Weather:
     def __init__(self, wind_speed=20):
-        self.__wind_speed = wind_speed
+        self._wind_speed = wind_speed
 
     def get_wind_speed(self):
-        return randint(0, self.__wind_speed)
+        return randint(0, self._wind_speed)
     
     wind_speed = property(get_wind_speed)
 
 
 class Competition:
-
     instance = None
 
-    def __new__(cls, distance=10000):
+    def __new__(cls, arg):
         if cls.instance is None:
             cls.instance = super(Competition, cls).__new__(cls)
-            cls.__distance = distance
         return cls.instance
 
-    def start_competition(self, competitors, weather):
-        for competitor_name in competitors:
-            competitor_time = 0
-            car = competitor_name.get_specs()
+    def __init__(self, distance=10000):
+        self._distance = distance
 
-            for distance in range(self.__distance):
-                _wind_speed = weather.wind_speed
+    def start_competition(self, competitor_car, ambient_weather):
+        competitors_raiting = []
 
-                if competitor_time == 0:
-                    _speed = 1
-                else:
-                    _speed = (competitor_time / car["time_to_max"]) * car['max_speed']
-                    if _speed > _wind_speed:
-                        _speed -= (car["drag_coef"] * _wind_speed)
+        for car in competitor_car:
+            competitors_raiting.append(car.ride(ambient_weather, self._distance))
 
-                competitor_time += float(1) / _speed
+        competitors_raiting = sorted(competitors_raiting, key=lambda x: x['time'])
 
-            print("Car <%s> result: %f" % (car["label"], competitor_time))
+        for car in competitors_raiting:
+            print("Car <%s> result: %f" % (car['label'], car['time']))
 
 
-ferrary = Car(label='ferrary', max_speed=340,  drag_coef=0.324, time_to_max=26)
-bugatti = Car(label='bugatti', max_speed=407, drag_coef=0.39, time_to_max=32)
-toyota = Car(label='toyota', max_speed=180, drag_coef=0.25, time_to_max=40)
-lada = Car(label='lada', max_speed=180, drag_coef=0.32, time_to_max=56)
-sx4 = Car(label='sx4', max_speed=180, drag_coef=0.33, time_to_max=44)
+if __name__ == "__main__":
+    ferrary = Car(label='ferrary', max_speed=340,  drag_coef=0.324, time_to_max=26)
+    bugatti = Car(label='bugatti', max_speed=407, drag_coef=0.39, time_to_max=32)
+    toyota = Car(label='toyota', drag_coef=0.25, time_to_max=40)
+    lada = Car(label='lada', drag_coef=0.32, time_to_max=56)
+    sx4 = Car(label='sx4', time_to_max=44)
 
-competitors = (ferrary, bugatti, toyota, lada, sx4)
+    competitors = (ferrary, bugatti, toyota, lada, sx4)
 
-weather = Weather(100)
+    weather = Weather(100)
 
-competition = Competition(9000)
-competition.start_competition(competitors, weather)
-competition2 = Competition(90)
-competition2.start_competition(competitors, weather)
+    competition = Competition(9000)
+    competition.start_competition(competitors, weather)
+

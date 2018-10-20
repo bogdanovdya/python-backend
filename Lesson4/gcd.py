@@ -25,7 +25,8 @@ def gcd(m: int, n: int) -> int:
         return gcd(m // 2, n)
 
     if m % 2 == 1 and n % 2 == 0:
-        return gcd(n, m // 2)
+        #return gcd(n, m // 2)
+        return gcd(n // 2, m)
 
     m, n = max(m, n), min(m, n)
     return gcd((m - n) // 2, n)

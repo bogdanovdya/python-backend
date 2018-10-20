@@ -12,4 +12,5 @@ def test_gcd(a, b):
 if __name__ == "__main__":
     for i in range(0, 101, 1):
         for j in range(0, 101, 1):
+
             test_gcd(i, j)

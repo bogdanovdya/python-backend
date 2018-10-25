@@ -33,28 +33,22 @@ def supervisor(thr_list):
         time.sleep(10)
 
 
-class Create:
-    def __init__(self, queue, body_msg):
-        _queue = queue
+class ICreate:
+    def __init__(self, body_msg):
         _tt = json.loads(body_msg)
-        create_dict = {
-            'queue_one': self.create_one(_tt),
-            'queue_two': self.create_two(_tt),
-            'queue_three': self.create_three(_tt),
-            'queue_sms': self.create_sms(_tt),
-            'queue_mail': self.create_mail(_tt),
-            'queue_Tgm_1': self.telegram,
-            'queue_tlgrm': self.telegram,
-        }
         try:
-            create_dict[_queue]
             syslog.syslog('Message: {} {} {}'.format(_tt['hostname'].encode('utf-8'),
                                                      _tt['message'].encode('utf-8'),
                                                      _tt['state-trigger'].encode('utf-8')))
         except KeyError as e:
             raise ValueError('Undefined unit: {}'.format(e.args[0]))
 
-    def create_one(self, tt):
+    def create_msg(self, tt):
+        """"creating message"""
+
+
+class CreateOne(ICreate):
+    def create_msg(self, tt):
         try:
             row = [
                 tt['hostname'].encode('utf-8'),
@@ -73,7 +67,9 @@ class Create:
             syslog.syslog("Error while creating: %s" % exc)
             return False
 
-    def create_two(self, tt):
+
+class CreateTwo(ICreate):
+    def create_msg(self, tt):
         try:
             row = [
                 tt['hostname'].encode('utf-8'),
@@ -92,7 +88,9 @@ class Create:
             syslog.syslog("Error while creating: %s" % exc)
             return False
 
-    def create_three(self, tt):
+
+class CreateThree(ICreate):
+    def create_msg(self, tt):
         try:
             row = [tt['hostname'].encode(
                 'utf-8'), tt['state-trigger'].encode('utf-8'), tt['trigger'].encode('utf-8')]
@@ -101,13 +99,14 @@ class Create:
             syslog.syslog("Error while creating: %s" % (exc))
             return False
 
-    def create_sms(self, smsDict):
 
-        number = smsDict['number']
-        subject = smsDict['subject']
-        message = smsDict['message']
+class CreateSms(ICreate):
+    def create_msg(self, tt):
+        number = tt['number']
+        subject = tt['subject']
+        message = tt['message']
 
-        message = subject+" "+message
+        message = subject + " " + message
         message = message.replace('\n', '')
         message = message[:70].encode('utf-8')
 
@@ -117,7 +116,9 @@ class Create:
         }
         return row
 
-    def create_mail(self, mailDict):
+
+class CreateMail(ICreate):
+    def create_msg(self, tt):
         import smtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
@@ -126,24 +127,24 @@ class Create:
 
         try:
             my_mail = 'mail@mail.server'
-            mail_is_valid = validate_email(mailDict['mail'])
+            mail_is_valid = validate_email(tt['mail'])
 
             if mail_is_valid is not True:
-                raise Exception("invalid e-mail: " + mailDict['mail'])
+                raise Exception("invalid e-mail: " + tt['mail'])
 
             msg = MIMEMultipart('alternative')
-            msg['Subject'] = Header(mailDict['subject'], 'utf-8')
+            msg['Subject'] = Header(tt['subject'], 'utf-8')
             msg['From'] = my_mail
-            msg['To'] = mailDict['mail']
+            msg['To'] = tt['mail']
 
-            msgText = MIMEText(mailDict['message'].encode(
+            msgText = MIMEText(tt['message'].encode(
                 'utf-8'), 'plain', 'utf-8')
             msg.attach(msgText)
 
             s = smtplib.SMTP('mail.server')
-            s.sendmail(my_mail, mailDict['mail'], msg.as_string())
+            s.sendmail(my_mail, tt['mail'], msg.as_string())
 
-            syslog.syslog("Sending email-massage to: %s" % (mailDict['mail']))
+            syslog.syslog("Sending email-massage to: %s" % (tt['mail']))
         except Exception as exc:
             syslog.syslog("Error while sending e-mail: %s" % (exc))
 
@@ -151,9 +152,29 @@ class Create:
             if s:
                 s.quit()
 
-    def telegram(self, body_msg):
-        row = body_msg
-        return
+
+class CreateTelegram(ICreate):
+    def create_msg(self, tt):
+        row = tt
+        return row
+
+
+class CreateMediator:
+    def __init__(self, queue, body_msg):
+        _queue = queue
+        create_dict = {
+            'queue_one': CreateOne(body_msg),
+            'queue_two': CreateTwo(body_msg),
+            'queue_three': CreateThree(body_msg),
+            'queue_sms': CreateSms(body_msg),
+            'queue_mail': CreateMail(body_msg),
+            'queue_Tgm_1': CreateTelegram(body_msg),
+            'queue_tlgrm': CreateTelegram(body_msg)
+        }
+        try:
+            create_dict[_queue]
+        except KeyError as e:
+            raise ValueError('Undefined unit: {}'.format(e.args[0]))
 
 
 class TelegramApi:
@@ -192,21 +213,13 @@ class TelegramApi:
             syslog.syslog(" %s" % messToSyslog)
 
 
-class Handler:
-    def __init__(self, queue):
-        self.queue = queue
+class IHandlerFactory:
 
-        self.params = {"telegram": {"token": "id:token",
-                                    "base_url": "https://api.telegram.org/bot",
-                                    'proxy': {
-                                        'ip': '0.0.0.0',
-                                        'port': 9999, 'user': 'some_user', 'password': 'some_password'}},
-                       "to_db": {'url_in': 'some url in'},
-                       "mail": {},
-                       "sms": {"procedure": "send_procedure(%s);"},
-                       "queue_one": {"procedure": "procedure_two(:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11);"},
-                       "queue_two": {"procedure": "procedure_two(:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11);"},
-                       "queue_three": {"procedure": "procedure_two(:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11);"}}
+    queue = None
+    params = None
+
+    def callback(self, ch, method, properties, body):
+        """"creating callback"""
 
     def start_consume(self):
         try:
@@ -229,60 +242,110 @@ class Handler:
 
         connection.close()
 
+
+class HandlerNumberFactory(IHandlerFactory):
+
+    params = {"procedure": "procedure_two(:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11);"}
+
     def callback(self, ch, method, properties, body):
-        if ch in ["queue_one", "queue_one", "queue_one"]:
-            row = Create(ch, body)
-            db_result = CorporateDB(self.params[ch]["procedure"])
+        row = CreateMediator(self.queue, body)
+        db_result = CorporateDB(self.params["procedure"])
+        if db_result:
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+        else:
+            ch.basic_nack(delivery_tag=method.delivery_tag)
+
+
+class HandlerOne(HandlerNumberFactory):
+    def __init__(self):
+        self.queue = "queue_one"
+
+
+class HandlerTwo(HandlerNumberFactory):
+    def __init__(self):
+        self.queue = "queue_two"
+
+
+class HandlerThree(HandlerNumberFactory):
+    def __init__(self):
+        self.queue = "queue_three"
+        self.params = {"procedure": "procedure_two(:1, :2, :3);"}
+
+
+class HandlerMessageFactory(IHandlerFactory):
+    def callback(self, ch, method, properties, body):
+        CreateMediator(self.queue, body)
+
+
+class HandlerTelegram(HandlerMessageFactory):
+    def __init__(self):
+        self.queue = "queue_tlgrm"
+        self.params = {"telegram": {"token": "id:token",
+                                    "base_url": "https://api.telegram.org/bot",
+                                    'proxy': {
+                                        'ip': '0.0.0.0',
+                                        'port': 9999, 'user': 'some_user', 'password': 'some_password'}}}
+
+
+class HandlerPsevdoTelegram(HandlerMessageFactory):
+    def __init__(self):
+        self.queue = "queue_tlgrm"
+        self.params = {'url_in': 'some url in'}
+
+
+class HandlerMail(HandlerMessageFactory):
+    def __init__(self):
+        self.queue = "mail"
+        self.params = "mail"
+
+
+class HandlerSms(IHandlerFactory):
+    def __init__(self):
+        self.queue = "sms"
+        self.params = {"mail": {}}
+
+    def callback(self, ch, method, properties, body):
+        row = CreateMediator(self.queue, body)
+        try:
+            db_result = CorporateDB(self.params[self.queue]["procedure" % (row['message'])])
             if db_result:
+                syslog.syslog("Sending SMS message to: %s" % (row['number']))
                 ch.basic_ack(delivery_tag=method.delivery_tag)
             else:
                 ch.basic_nack(delivery_tag=method.delivery_tag)
-
-        if ch == "sms":
-            row = Create(ch, body)
-            try:
-                db_result = CorporateDB(self.params[ch]["procedure" % (row['message'])])
-                if db_result:
-                    syslog.syslog("Sending SMS message to: %s" % (row['number']))
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
-                else:
-                    ch.basic_nack(delivery_tag=method.delivery_tag)
-            except Exception as exc:
-                syslog.syslog("Error while sending SMS notification: %s" % (exc))
-
-        if ch in ["queue_Tgm_1", "queue_tlgrm", "mail"]:
-            Create(ch, body)
+        except Exception as exc:
+            syslog.syslog("Error while sending SMS notification: %s" % (exc))
 
 
-#corporateDB class
 class CorporateDB:
+    _instance = None
+
+    def __new__(cls, url_in):
+        cls.connection = dbModule.Connection("login/password")
+        if cls._instance is None:
+            cls._instance = super(CorporateDB, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, url_in):
-        self.connection = dbModule.Connection("login/password")
         self.cursor = self.connection.cursor()
         self.cursor.execute('''BEGIN
                             %s;
                             END;''' % url_in)
-
-    def telegram_procedure_exec(self, group, message):
-        self.cursor.execute("""BEGIN
-                        %s;
-                        COMMIT;
-                        END;""" % message, group=int(group), result_out=result_out, message_out=message_out)
-        self.cursor.close()
-        self.connection.commit()
-        self.connection.close()
-        return result_out.getvalue(), message_out.getvalue()
 
 
 if __name__ == "__main__":
     syslog.openlog('some_tag', syslog.LOG_PID, syslog.LOG_NOTICE)
 
     try:
-        thr_list = []
-        for n in ["queue_Tgm_1", "queue_tlgrm", "queue_one", "queue_two", "queue_three", "queue_mail", "queue_sms"]:
-            thread = Handler(n)
-            thr_list.append(thread.start_consume)
-
+        thr_list = [
+            HandlerOne,
+            HandlerTwo,
+            HandlerThree,
+            HandlerSms,
+            HandlerMail,
+            HandlerTelegram,
+            HandlerPsevdoTelegram
+        ]
         supervisor(thr_list)
 
     except KeyboardInterrupt:

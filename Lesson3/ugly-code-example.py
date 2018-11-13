@@ -243,9 +243,10 @@ class IHandlerFactory:
         connection.close()
 
 
-class HandlerNumberFactory(IHandlerFactory):
-
-    params = {"procedure": "procedure_two(:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11);"}
+class HandlerNumber(IHandlerFactory):
+    def __init__(self, queue, params):
+        self.queue = queue
+        self.params = params
 
     def callback(self, ch, method, properties, body):
         row = CreateMediator(self.queue, body)
@@ -254,22 +255,6 @@ class HandlerNumberFactory(IHandlerFactory):
             ch.basic_ack(delivery_tag=method.delivery_tag)
         else:
             ch.basic_nack(delivery_tag=method.delivery_tag)
-
-
-class HandlerOne(HandlerNumberFactory):
-    def __init__(self):
-        self.queue = "queue_one"
-
-
-class HandlerTwo(HandlerNumberFactory):
-    def __init__(self):
-        self.queue = "queue_two"
-
-
-class HandlerThree(HandlerNumberFactory):
-    def __init__(self):
-        self.queue = "queue_three"
-        self.params = {"procedure": "procedure_two(:1, :2, :3);"}
 
 
 class HandlerMessageFactory(IHandlerFactory):
@@ -338,9 +323,9 @@ if __name__ == "__main__":
 
     try:
         thr_list = [
-            HandlerOne,
-            HandlerTwo,
-            HandlerThree,
+            HandlerNumber('queue_one', {"procedure": "procedure_one(:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11);"}),
+            HandlerNumber('queue_two', {"procedure": "procedure_two(:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11);"}),
+            HandlerNumber('queue_two', {"procedure": "procedure_two(:1, :2, :3);"}),
             HandlerSms,
             HandlerMail,
             HandlerTelegram,

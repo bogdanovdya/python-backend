@@ -1,0 +1,12 @@
+{% extends "blog/base_blog.html" %}
+
+{% block title %}
+    Посты
+{% endblock %}
+
+{% block content %}
+    <h2 class="mb-5">Записи:</h2>
+    {% for post in posts %}
+        {% include 'blog/includes/post_card_template.html' %}
+    {% endfor %}
+{% endblock %}
